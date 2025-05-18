@@ -1,18 +1,23 @@
 <?php
 class Database {
-    public static function connect() {
-        $host = 'localhost';
-        $dbname = 'calendar_db';
-        $username = 'root';
-        $password = '';
+    private static $conn = null;
 
-        try {
-            $conn = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);
-            $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            return $conn;
-        } catch (PDOException $e) {
-            die("Connection failed: " . $e->getMessage());
+    public static function connect() {
+        if (self::$conn === null) {
+            $host = 'localhost';
+            $dbname = 'calendar_db';
+            $username = 'root';
+            $password = '';
+
+            try {
+                self::$conn = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);
+                self::$conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            } catch (PDOException $e) {
+                die("Connection failed: " . $e->getMessage());
+            }
         }
+
+        return self::$conn;
     }
 }
 ?>

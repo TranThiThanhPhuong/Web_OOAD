@@ -43,34 +43,38 @@ class AppointmentRepository
         $stmt->execute([$name, $location, $start, $end, $hostId]);
     }
 
-    // Kiểm tra cuộc hẹn trùng thời gian của user
-    public function findConflictsByTime($userId, $start, $end)
+    public function findGroupMeetingByNameAndDuration($name, $durationInSeconds)
     {
         $stmt = $this->conn->prepare("
-        SELECT * FROM appointments 
-        JOIN participants ON appointments.id = participants.appointmentId 
-        WHERE participants.userId = ? 
-        AND ((start < ? AND end > ?) OR (start >= ? AND start < ?))
+        SELECT *, (UNIX_TIMESTAMP(end) - UNIX_TIMESTAMP(start)) as duration 
+        FROM appointments 
+        WHERE name = ?
+        HAVING ABS(duration - ?) <= 60
     ");
-        $stmt->execute([$userId, $end, $start, $start, $end]);
-        return $stmt->fetchAll();
+        $stmt->execute([$name, $durationInSeconds]);
+        return $stmt->fetch(PDO::FETCH_ASSOC); // Trả về 1 cuộc họp nhóm đầu tiên tìm được
     }
 
-    // Tìm cuộc hẹn nhóm có cùng tên và cùng thời lượng
-    public function findGroupMeetingByNameAndDuration($name, $start, $end)
+    public function addUserToGroupMeeting($userId, $appointmentId)
     {
+        // Kiểm tra xem người dùng đã có mặt trong cuộc họp chưa
+        $checkStmt = $this->conn->prepare("
+        SELECT * FROM participants WHERE userId = ? AND appointmentId = ?
+    ");
+        $checkStmt->execute([$userId, $appointmentId]);
+        if ($checkStmt->fetch()) {
+            return; // đã tham gia rồi
+        }
+
         $stmt = $this->conn->prepare("
-        SELECT * FROM appointments 
-        WHERE name = ? AND start = ? AND end = ?
+        INSERT INTO participants (userId, appointmentId) VALUES (?, ?)
     ");
-        $stmt->execute([$name, $start, $end]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        $stmt->execute([$userId, $appointmentId]);
     }
 
-    // Thêm người dùng vào cuộc họp nhóm (bảng participants)
-    public function addParticipant($appointmentId, $userId)
+    public function deleteAppointment($id)
     {
-        $stmt = $this->conn->prepare("INSERT INTO participants (appointmentId, userId) VALUES (?, ?)");
-        $stmt->execute([$appointmentId, $userId]);
+        $stmt = $this->conn->prepare("DELETE FROM appointments WHERE id = ?");
+        return $stmt->execute([$id]);
     }
 }
